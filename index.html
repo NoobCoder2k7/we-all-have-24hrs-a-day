@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Momentum Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column (phone-first), a timeline of time blocks as the hero of the Day view; quadrants named after desserts. */
+:root{
+  --bg:#FAF7F9; --surface:#FFFFFF; --ink:#2B2330; --muted:#76697D; --line:#ECE3EA; --hover:#F4EEF3;
+  --do:#D9486A; --do-soft:#FBE3E9;
+  --plan:#4F8A5D; --plan-soft:#E2EFE3;
+  --quick:#C98A1E; --quick-soft:#FBEFD8;
+  --drop:#8B7FA6; --drop-soft:#EEEAF5;
+  --fixed:#A99DB0;
+  --accent:#D9486A; --on-accent:#FFFFFF;
+  --f-display:"Young Serif", Georgia, "Times New Roman", serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#16121A; --surface:#211B26; --ink:#F3ECF4; --muted:#A99DB0; --line:#352C3C; --hover:#2A2330;
+  --do:#F27C93; --do-soft:#3B2029; --plan:#8CC79A; --plan-soft:#1E2F23; --quick:#EDBA62; --quick-soft:#372B16;
+  --drop:#B8ADD0; --drop-soft:#29243A; --fixed:#7E7286; --accent:#F27C93; --on-accent:#1A0F14; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#16121A; --surface:#211B26; --ink:#F3ECF4; --muted:#A99DB0; --line:#352C3C; --hover:#2A2330;
+  --do:#F27C93; --do-soft:#3B2029; --plan:#8CC79A; --plan-soft:#1E2F23; --quick:#EDBA62; --quick-soft:#372B16;
+  --drop:#B8ADD0; --drop-soft:#29243A; --fixed:#7E7286; --accent:#F27C93; --on-accent:#1A0F14; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 64px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:6px 14px}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand b{font-family:var(--f-display);font-weight:400;font-size:20px}
+.sync{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:2px;background:var(--hover);border-radius:999px;padding:3px}
+.tabs a{padding:6px 12px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;font-size:13.5px}
+.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* day header */
+.dayhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.dayhead h1{font-size:clamp(30px,7vw,42px);line-height:1.05}
+.navbtns{display:flex;gap:6px}
+.iconbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:16px}
+.iconbtn:hover{background:var(--hover)}
+.pillbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600}
+.pillbtn:hover{background:var(--hover)}
+.weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:14px}
+.weekstrip button{border:0;background:transparent;border-radius:12px;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted)}
+.weekstrip button .n{font-weight:700;color:var(--ink);font-size:15px}
+.weekstrip button.sel{background:var(--ink);color:var(--bg)}
+.weekstrip button.sel .n{color:var(--bg)}
+.weekstrip .dot{width:5px;height:5px;border-radius:50%;background:transparent}
+.weekstrip .dot.on{background:var(--accent)}
+.statline{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:12.5px;background:var(--hover);color:var(--ink);font-weight:500}
+
+/* sections */
+section.block{margin-top:26px}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.sechead h2{font-size:22px}
+.step-n{font-family:var(--f-mono);font-size:12px;color:var(--accent);margin-right:6px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+details.plan > summary{list-style:none;cursor:pointer}
+details.plan > summary::-webkit-details-marker{display:none}
+.hint{font-size:13px;color:var(--muted)}
+textarea.dump{width:100%;min-height:96px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px 12px;resize:vertical;line-height:1.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:999px;padding:9px 16px;font-weight:700;background:var(--ink);color:var(--bg)}
+.btn.accent{background:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:6px 12px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* matrix */
+.matrix{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.quad{border-radius:12px;padding:10px;min-height:96px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.quad h3{font-family:var(--f-body);font-weight:700;font-size:13.5px}
+.quad .sub{font-size:11.5px;color:var(--muted);margin-top:-4px}
+.q-do{background:var(--do-soft)} .q-do h3{color:var(--do)}
+.q-plan{background:var(--plan-soft)} .q-plan h3{color:var(--plan)}
+.q-quick{background:var(--quick-soft)} .q-quick h3{color:var(--quick)}
+.q-drop{background:var(--drop-soft)} .q-drop h3{color:var(--drop)}
+.q-none{background:var(--hover);grid-column:1/-1}
+.tchip{display:flex;justify-content:space-between;gap:6px;align-items:center;text-align:left;border:0;background:var(--surface);border-radius:9px;padding:6px 8px;font-size:13px;min-width:0;width:100%}
+.tchip span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tchip .est{font-family:var(--f-mono);font-size:11px;color:var(--muted);flex:none}
+.tchip.done span.t{text-decoration:line-through;color:var(--muted)}
+.tchip.example::after{content:"example";font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 4px;flex:none}
+.quad .empty{font-size:12px;color:var(--muted)}
+
+/* timeline */
+.timeline{position:relative;display:flex;flex-direction:column;gap:6px}
+.tl{display:grid;grid-template-columns:62px 18px 1fr;gap:8px;align-items:stretch}
+.tl .time{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);text-align:right;padding-top:12px;font-variant-numeric:tabular-nums}
+.tl .rail{position:relative;display:flex;justify-content:center}
+.tl .rail::before{content:"";position:absolute;top:0;bottom:-6px;width:2px;background:var(--line)}
+.tl:last-child .rail::before{bottom:50%}
+.tl .node{position:relative;margin-top:14px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--fixed)}
+.tl.k-do .node{border-color:var(--do);background:var(--do)}
+.tl.k-plan .node{border-color:var(--plan);background:var(--plan)}
+.tl.k-quick .node{border-color:var(--quick);background:var(--quick)}
+.tl.k-break .node{width:8px;height:8px;margin-top:16px}
+.tl .body{min-width:0;border-radius:12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+.tl.fixed .body{background:transparent;border-style:dashed}
+.tl.k-break .body{background:transparent;border:0;padding:6px 12px}
+.tl.past .body{opacity:.55}
+.tl.isdone .title{text-decoration:line-through;color:var(--muted)}
+.tl .main{flex:1;min-width:0}
+.tl .title{font-weight:600;overflow-wrap:anywhere}
+.tl .meta{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.tl .first{font-size:12.5px;margin-top:4px;color:var(--ink)}
+.tl .first em{font-style:normal;color:var(--muted)}
+.check{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--fixed);background:transparent;display:grid;place-items:center;margin-top:1px;padding:0}
+.check.on{background:var(--plan);border-color:var(--plan);color:var(--surface)}
+.check svg{width:14px;height:14px}
+.startbtn{display:inline-block;margin-top:8px;border:0;border-radius:999px;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:12.5px;padding:6px 10px;white-space:nowrap}
+.sublist{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.sublist label{display:flex;gap:8px;align-items:center;font-size:13.5px}
+.nowline{display:grid;grid-template-columns:62px 18px 1fr;gap:8px;align-items:center}
+.nowline .time{font-family:var(--f-mono);font-size:12px;color:var(--accent);text-align:right;font-weight:500}
+.nowline .bar{grid-column:2/4;height:2px;background:var(--accent);border-radius:2px;position:relative}
+.nowline .bar::before{content:"";position:absolute;left:3px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.emptybox{border:1px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted)}
+
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.li .t{min-width:0;overflow-wrap:anywhere}
+.li .s{font-size:12.5px;color:var(--muted)}
+.linkbtn{border:0;background:transparent;color:var(--accent);font-weight:700;font-size:13px;padding:4px 2px;white-space:nowrap}
+.choices{display:flex;flex-wrap:wrap;gap:6px}
+.choice{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px}
+.choice[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.park{display:flex;gap:8px}
+.park input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:8px 14px}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--quick-soft);border-radius:12px;padding:10px 12px;font-size:13.5px;margin-top:14px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(20,10,20,.42);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:20px}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.field input,.field textarea,.field select{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 11px;width:100%}
+.qpick{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.qpick button{border:2px solid transparent;border-radius:10px;padding:8px;text-align:left;font-size:13px;font-weight:600}
+.qpick button small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.qpick .do{background:var(--do-soft)} .qpick .plan{background:var(--plan-soft)} .qpick .quick{background:var(--quick-soft)} .qpick .drop{background:var(--drop-soft)}
+.qpick button[aria-pressed="true"]{border-color:var(--ink)}
+
+/* focus overlay */
+.focus{position:fixed;inset:0;z-index:50;background:var(--ink);color:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:calc(24px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.focus h2{font-size:clamp(24px,6vw,34px);max-width:22ch}
+.focus .timer{font-family:var(--f-mono);font-size:clamp(56px,18vw,96px);font-weight:500;letter-spacing:-.02em;line-height:1}
+.focus .first{max-width:40ch;opacity:.85}
+.focus .row{justify-content:center}
+.focus .btn{background:var(--bg);color:var(--ink)}
+.focus .btn.ghost{background:transparent;color:var(--bg);border-color:rgba(255,255,255,.3)}
+.focus .park{width:100%;max-width:420px}
+.focus .park input{background:transparent;color:var(--bg);border-color:rgba(255,255,255,.3)}
+.focus .park input::placeholder{color:rgba(255,255,255,.55)}
+:root[data-theme="dark"] .focus .park input,:root[data-theme="dark"] .focus .btn.ghost{border-color:rgba(0,0,0,.25)}
+.focus .close{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));background:transparent;border:0;color:var(--bg);font-size:26px;opacity:.7}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13.5px;z-index:60;font-weight:600}
+
+/* calendar views */
+.weekrows{display:flex;flex-direction:column;gap:6px}
+.wrow{display:grid;grid-template-columns:76px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);text-align:left;width:100%}
+.wrow.today{border-color:var(--accent)}
+.wrow .d{font-weight:700}
+.wrow .d small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.wrow .items{min-width:0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .items b{color:var(--do);font-weight:600}
+.bar{height:6px;border-radius:6px;background:var(--hover);overflow:hidden;width:64px}
+.bar i{display:block;height:100%;background:var(--plan)}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+.stat{padding:12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.stat .v{font-family:var(--f-display);font-size:28px;line-height:1.1}
+.stat .l{font-size:12.5px;color:var(--muted)}
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.month .dow{font-size:11px;text-align:center;color:var(--muted);font-weight:700;letter-spacing:.06em;padding-bottom:4px}
+.mcell{aspect-ratio:1/1.05;max-width:100%;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:5px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-width:0;overflow:hidden}
+.mcell.out{opacity:.35}
+.mcell.today{border-color:var(--accent);border-width:2px}
+.mcell .n{font-weight:700;font-size:13px}
+.mcell .dl{font-size:10.5px;line-height:1.2;color:var(--do);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.mcell .prog{margin-top:auto;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.semcard{display:flex;flex-direction:column;gap:10px}
+.semprog{height:10px;border-radius:10px;background:var(--hover);overflow:hidden}
+.semprog i{display:block;height:100%;background:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.dlgroup h3{font-family:var(--f-body);font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+@media (prefers-reduced-motion:no-preference){.tl,.li,.tchip{transition:background .15s}}
+@media (max-width:420px){.tl{grid-template-columns:48px 14px 1fr;gap:6px}.nowline{grid-template-columns:48px 14px 1fr;gap:6px}.tl .time{font-size:11.5px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>Momentum</b><span class="sync" id="sync">Saved on this device</span></div>
+    <nav class="tabs" aria-label="Zoom level">
+      <a href="#day" data-v="day">Day</a><a href="#week" data-v="week">Week</a><a href="#month" data-v="month">Month</a><a href="#semester" data-v="semester">Semester</a>
+    </nav>
+  </header>
+  <main id="app"></main>
+</div>
+<div id="layer"></div>
+
+<script>
+(() => {
+/* ---------- utils ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); };
+const toMin = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const fmt = min => { const m = ((min % 1440) + 1440) % 1440; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; };
+const dur = m => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? pad(m % 60) : ''}` : `${m}m`;
+const r5 = n => Math.ceil(n / 5) * 5;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const today = () => ymd(new Date());
+const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 864e5);
+const mondayOf = s => { const d = parseYmd(s); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymd(d); };
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+
+const Q = {
+  do:    { name: 'Do first',   sub: 'Urgent + important' },
+  plan:  { name: 'Schedule',   sub: 'Important, not urgent' },
+  quick: { name: 'Quick wins', sub: 'Urgent, not important' },
+  drop:  { name: 'Not today',  sub: 'Neither. Let it go' },
+};
+const PULLS = ['Curiosity rabbit hole', 'YouTube Shorts', 'Facebook', 'Instagram', 'C-drama', 'Tired', 'Nothing, I was on it'];
+
+/* ---------- state ---------- */
+const DEFAULT_SETTINGS = { wake: '06:00', sleep: '01:00', gymStart: '15:00', gymEnd: '16:00', meal1Start: '10:30', meal1End: '11:00', meal2Start: '18:00', meal2End: '18:30', buffer: 25, focus: 50 };
+let S = null;
+let ui = { date: today(), view: 'day' };
+const dirty = new Set();
+
+function blankState() {
+  return { v: 1, settings: { ...DEFAULT_SETTINGS }, semester: { name: 'Semester 1', start: '2026-08-10', end: '2026-12-06' }, deadlines: [], parked: [], days: {} };
+}
+function seedExamples(st) {
+  const t = today();
+  st.days[t] = { tasks: [
+    { id: uid(), title: 'Stats assignment 2', q: 'do', est: 90, example: true, first: 'Open the brief and highlight what the rubric rewards',
+      steps: [ { id: uid(), text: 'Re-read brief and rubric', est: 15, done: false }, { id: uid(), text: 'Solve Q1 to Q3', est: 45, done: false }, { id: uid(), text: 'Write up and check', est: 30, done: false } ] },
+    { id: uid(), title: 'Read Ch. 7 for marketing seminar', q: 'plan', est: 45, example: true, first: 'Read the chapter summary first', steps: [] },
+    { id: uid(), title: 'Reply in group project chat', q: 'quick', est: 10, example: true, steps: [] },
+    { id: uid(), title: 'Print lab sheet', q: 'quick', est: 10, example: true, steps: [] },
+    { id: uid(), title: 'Reorganise my notes app', q: 'drop', est: 30, example: true, steps: [] },
+  ], blocks: [], overflow: [], starts: {}, review: {} };
+  st.deadlines = [
+    { id: uid(), title: 'Stats assignment 2 due', date: addDays(t, 4), example: true },
+    { id: uid(), title: 'Marketing midterm', date: addDays(t, 12), example: true },
+    { id: uid(), title: 'Final exams start', date: addDays(t, 27), example: true },
+  ];
+  st.hasExamples = true;
+  dirty.add('core'); dirty.add('day:' + t);
+}
+function getDay(date) {
+  if (!S.days[date]) S.days[date] = { tasks: [], blocks: [], overflow: [], starts: {}, review: {} };
+  const d = S.days[date];
+  d.tasks ||= []; d.blocks ||= []; d.overflow ||= []; d.starts ||= {}; d.review ||= {};
+  return d;
+}
+const peekDay = date => S.days[date];
+function touch(key) { dirty.add(key); scheduleSave(); }
+const touchDay = date => touch('day:' + date);
+
+/* ---------- persistence: account (db capability) with device fallback ---------- */
+const LS_KEY = 'momentum-planner-v1';
+let coll = null, writing = Promise.resolve(), saveTimer = null;
+function loadLocal() { try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+function coreObj() { return { v: 1, settings: S.settings, semester: S.semester, deadlines: S.deadlines, parked: S.parked, hasExamples: !!S.hasExamples }; }
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 500);
+}
+function flush() {
+  saveLocal();
+  if (!coll) { dirty.clear(); return; }
+  const keys = [...dirty]; dirty.clear();
+  for (const k of keys) {
+    const body = k === 'core' ? coreObj() : S.days[k.slice(4)];
+    if (!body) continue;
+    const docId = k === 'core' ? 'core' : 'd' + k.slice(4);
+    const json = JSON.stringify(body);
+    writing = writing.then(() => coll.doc(docId).set({ json, at: Date.now() }))
+      .then(() => setSync('Synced to your account'))
+      .catch(() => { setSync('Saved on this device'); });
+  }
+}
+function setSync(t) { const el = $('#sync'); if (el) el.textContent = t; }
+async function connectAccount() {
+  if (!window.claude || typeof window.claude.use !== 'function') return;
+  try {
+    const timeout = new Promise(r => setTimeout(() => r(null), 10000));
+    const db = await Promise.race([window.claude.use('db'), timeout]);
+    const user = db && await Promise.race([window.claude.use('user'), timeout]);
+    if (!db || !user) return;
+    const id = await user.id();
+    if (!id) return;
+    const c = db.collection('data/users/' + id);
+    const snap = await c.get();
+    const docs = snap.docs.filter(d => d.exists);
+    if (docs.length) {
+      const st = blankState();
+      for (const d of docs) {
+        let body; try { body = JSON.parse(d.data().json); } catch (e) { continue; }
+        if (d.id === 'core') Object.assign(st, body, { settings: { ...DEFAULT_SETTINGS, ...(body.settings || {}) } });
+        else if (d.id.startsWith('d')) st.days[d.id.slice(1)] = body;
+      }
+      S = st; coll = c; saveLocal(); render();
+    } else {
+      coll = c;
+      dirty.add('core'); Object.keys(S.days).forEach(k => dirty.add('day:' + k));
+      flush();
+    }
+    setSync('Synced to your account');
+  } catch (e) { setSync('Saved on this device'); }
+}
+
+/* ---------- scheduling ---------- */
+function fixedBlocks() {
+  const s = S.settings;
+  return [
+    { kind: 'meal', title: 'Brunch', start: toMin(s.meal1Start), end: toMin(s.meal1End), note: 'Eat away from the desk. Food Shorts allowed here.' },
+    { kind: 'gym', title: 'Gym', start: toMin(s.gymStart), end: toMin(s.gymEnd), note: 'Non-negotiable. Save your C-drama episode for the treadmill.' },
+    { kind: 'meal', title: 'Dinner', start: toMin(s.meal2Start), end: toMin(s.meal2End), note: 'Catch up on Facebook and Instagram here, not mid-task.' },
+  ].filter(b => b.end > b.start).sort((a, b) => a.start - b.start);
+}
+function bounds() { const w = toMin(S.settings.wake); let sl = toMin(S.settings.sleep); if (sl <= w) sl += 1440; return [w, sl]; }
+function stepsOf(t) { return t.steps || []; }
+function buildUnits(day) {
+  const order = { do: 0, plan: 1, quick: 2 };
+  const tasks = day.tasks.filter(t => !t.done && t.q !== 'drop');
+  tasks.sort((a, b) => order[a.q || 'plan'] - order[b.q || 'plan']);
+  const units = [], quick = [];
+  for (const t of tasks) {
+    const q = t.q || 'plan';
+    const open = stepsOf(t).filter(s => !s.done);
+    if (q === 'quick' && (t.est || 15) <= 20 && !open.length) { quick.push(t); continue; }
+    if (open.length) open.forEach(s => units.push({ taskId: t.id, stepId: s.id, q, title: s.text, parent: t.title, est: s.est || 25 }));
+    else units.push({ taskId: t.id, q, title: t.title, est: t.est || 30 });
+  }
+  if (quick.length) units.push({ taskIds: quick.map(t => t.id), q: 'quick', title: 'Quick wins batch', est: quick.reduce((a, t) => a + (t.est || 10), 0) });
+  return units;
+}
+function blockDone(day, b) {
+  if (b.taskIds) return b.taskIds.every(id => { const t = day.tasks.find(x => x.id === id); return t ? !!t.done : true; });
+  const t = day.tasks.find(t => t.id === b.taskId);
+  if (!t) return true;
+  if (b.stepId) { const s = stepsOf(t).find(s => s.id === b.stepId); return s ? !!s.done : !!t.done; }
+  return !!t.done;
+}
+function planDay(date, fromMin) {
+  const day = getDay(date), s = S.settings, [wake, sleep] = bounds();
+  const keep = day.blocks.filter(b => b.start < fromMin && (b.end <= fromMin || blockDone(day, b) || day.starts[b.id] != null));
+  const busy = [...fixedBlocks(), ...keep];
+  const blocks = keep.slice(), overflow = [];
+  let cursor = Math.max(wake, fromMin);
+  keep.forEach(b => { if (b.end > cursor) cursor = b.end; });
+  let streak = 0;
+  const nextFree = c => {
+    let moved = true;
+    while (moved) { moved = false; for (const f of busy) if (c >= f.start && c < f.end) { c = f.end; moved = true; streak = 0; } }
+    let end = sleep; for (const f of busy) if (f.start >= c && f.start < end) end = f.start;
+    return [c, end];
+  };
+  for (const u of buildUnits(day)) {
+    if (u.taskIds === undefined && keep.some(b => b.taskId === u.taskId && b.stepId === u.stepId && !blockDone(day, b) && day.starts[b.id] != null)) continue;
+    let remaining = r5(u.est * (1 + s.buffer / 100));
+    const parts = [];
+    let guard = 0;
+    while (remaining > 0 && guard++ < 500) {
+      const [a, b] = nextFree(cursor);
+      if (a >= sleep) break;
+      if (b - a < 10 && remaining >= 10) { cursor = b; streak = 0; continue; }
+      if (streak >= s.focus || (streak > 0 && remaining > s.focus - streak)) { const bl = Math.min(10, b - a); blocks.push({ id: uid(), kind: 'break', title: 'Break: stand up, water, no phone', start: a, end: a + bl }); cursor = a + bl; streak = 0; continue; }
+      let len = Math.min(remaining, s.focus - streak, b - a);
+      if (remaining - len > 0 && remaining - len <= 15 && remaining <= b - a) len = remaining; // no tiny leftovers
+      parts.push({ start: a, end: a + len }); cursor = a + len; streak += len; remaining -= len;
+    }
+    if (remaining > 0) overflow.push(u.taskIds ? 'Quick wins batch' : (u.parent ? `${u.parent}: ${u.title}` : u.title));
+    parts.forEach((p, i) => blocks.push({ id: uid(), kind: 'task', q: u.q, taskId: u.taskId, stepId: u.stepId, taskIds: u.taskIds, title: u.title, parent: u.parent, start: p.start, end: p.end, part: parts.length > 1 ? `part ${i + 1} of ${parts.length}` : '' }));
+  }
+  // drop a trailing break with nothing after it
+  blocks.sort((a, b) => a.start - b.start);
+  while (blocks.length && blocks[blocks.length - 1].kind === 'break') blocks.pop();
+  day.blocks = blocks; day.overflow = overflow; day.planned = true;
+  touchDay(date);
+}
+function planFrom(date) {
+  const [wake] = bounds();
+  if (date === today()) { const n = nowMin(); return n < wake ? wake : r5(n + 5); }
+  return wake;
+}
+function unscheduledCount(day) {
+  const ids = new Set();
+  day.blocks.forEach(b => { if (b.taskId) ids.add(b.taskId); (b.taskIds || []).forEach(i => ids.add(i)); });
+  return day.tasks.filter(t => !t.done && t.q !== 'drop' && !ids.has(t.id)).length;
+}
+
+/* ---------- metrics ---------- */
+function startStats(dates) {
+  let planned = 0, onTime = 0;
+  const n = nowMin(), t = today();
+  for (const d of dates) {
+    const day = peekDay(d); if (!day) continue;
+    for (const b of day.blocks || []) {
+      if (b.kind !== 'task') continue;
+      const due = d < t || (d === t && b.start <= n);
+      if (!due) continue;
+      planned++;
+      const st = day.starts?.[b.id];
+      if (st != null && st - b.start <= 10) onTime++;
+    }
+  }
+  return { planned, onTime };
+}
+function weekDates(date) { const m = mondayOf(date); return [...Array(7)].map((_, i) => addDays(m, i)); }
+function semWeek(date) {
+  const sm = S.semester; if (!sm.start || !sm.end) return null;
+  const total = Math.max(1, Math.ceil((daysBetween(sm.start, sm.end) + 1) / 7));
+  const k = Math.floor(daysBetween(sm.start, date) / 7) + 1;
+  return { k, total };
+}
+
+/* ---------- parsing the brain dump ---------- */
+function parseLine(line) {
+  let s = ' ' + line.trim() + ' ';
+  let est = null, imp = false, urg = false;
+  const hm = s.match(/\s(\d+)\s*h\s*(\d+)\s*(m|min)?\s/i);
+  if (hm) { est = +hm[1] * 60 + +hm[2]; s = s.replace(hm[0], ' '); }
+  else {
+    const m = s.match(/\s(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins)\s/i);
+    if (m) { est = Math.round(/^h/i.test(m[2]) ? +m[1] * 60 : +m[1]); s = s.replace(m[0], ' '); }
+  }
+  if (/\s!i\s/i.test(s)) { imp = true; s = s.replace(/\s!i\s/ig, ' '); }
+  if (/\s!u\s/i.test(s)) { urg = true; s = s.replace(/\s!u\s/ig, ' '); }
+  if (/\s!!\s/.test(s)) { imp = urg = true; s = s.replace(/\s!!\s/g, ' '); }
+  const title = s.trim().replace(/\s{2,}/g, ' ');
+  const q = imp && urg ? 'do' : imp ? 'plan' : urg ? 'quick' : null;
+  return title ? { id: uid(), title, q, est: est || 30, steps: [], done: false } : null;
+}
+function parseSteps(text, old = []) {
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    let est = null, t = ' ' + l + ' ';
+    const m = t.match(/\s(\d+)\s*(m|min|mins|h|hr)\s*$/i);
+    if (m) { est = /^h/i.test(m[2]) ? +m[1] * 60 : +m[1]; t = t.slice(0, m.index); }
+    t = t.trim();
+    const prev = old.find(o => o.text === t);
+    return { id: prev?.id || uid(), text: t, est: est || prev?.est || 25, done: prev?.done || false };
+  });
+}
+const stepsToText = steps => (steps || []).map(s => `${s.text} ${s.est}m`).join('\n');
+
+/* ---------- rendering ---------- */
+const app = $('#app');
+function render() {
+  document.querySelectorAll('.tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.v === ui.view ? 'page' : 'false'));
+  if (ui.view === 'week') app.innerHTML = renderWeek();
+  else if (ui.view === 'month') app.innerHTML = renderMonth();
+  else if (ui.view === 'semester') app.innerHTML = renderSemester();
+  else app.innerHTML = renderDay();
+}
+
+function dayTitle(date) {
+  const d = parseYmd(date), t = today();
+  const rel = date === t ? 'Today' : date === addDays(t, 1) ? 'Tomorrow' : date === addDays(t, -1) ? 'Yesterday' : DOW[d.getDay()];
+  return { rel, full: `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}` };
+}
+
+function taskChip(t) {
+  const steps = stepsOf(t);
+  const extra = steps.length ? ` · ${steps.filter(s => s.done).length}/${steps.length}` : '';
+  return `<button class="tchip${t.done ? ' done' : ''}${t.example ? ' example' : ''}" data-act="edit" data-id="${t.id}"><span class="t">${esc(t.title)}</span><span class="est">${dur(t.est || 30)}${extra}</span></button>`;
+}
+
+function renderDay() {
+  const date = ui.date, day = peekDay(date) || { tasks: [], blocks: [], overflow: [], starts: {}, review: {} };
+  const { rel, full } = dayTitle(date);
+  const sw = semWeek(date);
+  const wd = weekDates(date);
+  const ws = startStats(wd);
+  const strip = wd.map(d => {
+    const dd = parseYmd(d), has = (peekDay(d)?.tasks || []).length > 0 || S.deadlines.some(x => x.date === d);
+    return `<button data-act="goto" data-date="${d}" class="${d === date ? 'sel' : ''}" aria-label="${DOW[dd.getDay()]} ${dd.getDate()}"><span class="eyebrow" style="color:inherit">${DOW[dd.getDay()][0]}</span><span class="n">${dd.getDate()}</span><span class="dot${has ? ' on' : ''}"></span></button>`;
+  }).join('');
+
+  const hasBlocks = day.blocks.length > 0;
+  const byQ = k => day.tasks.filter(t => (t.q || null) === k);
+  const unsorted = day.tasks.filter(t => !t.q);
+  const quad = k => `<div class="quad q-${k}"><h3>${Q[k].name}</h3><div class="sub">${Q[k].sub}</div>${byQ(k).map(taskChip).join('') || '<div class="empty">Nothing here</div>'}</div>`;
+
+  const exampleBanner = S.hasExamples ? `<div class="banner"><span>You're looking at example tasks and deadlines. Replace them with your own.</span><button class="btn small" data-act="clear-examples">Clear examples</button></div>` : '';
+
+  const unsched = hasBlocks ? unscheduledCount(day) : 0;
+  const planBtnLabel = hasBlocks ? 'Re-plan the rest of the day' : (date === today() ? 'Plan my day from now' : 'Plan this day');
+
+  const dumpSection = `
+  <details class="plan card" ${hasBlocks ? '' : 'open'} id="plan-details">
+    <summary class="sechead" style="margin:0"><h2><span class="step-n">1</span>Dump &amp; sort</h2><span class="hint">${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'} · tap to ${hasBlocks ? 'edit' : 'open'}</span></summary>
+    <div style="margin-top:12px">
+      <textarea class="dump" id="dump" placeholder="One task per line. Optional: 45m or 2h, !i important, !u urgent&#10;Stats assignment 2 2h !i !u&#10;Email tutor 10m !u"></textarea>
+      <div class="row" style="justify-content:space-between;margin-top:8px">
+        <span class="hint">Then tap a task to sort it or break it down.</span>
+        <button class="btn" data-act="add">Add tasks</button>
+      </div>
+      ${unsorted.length ? `<div class="matrix"><div class="quad q-none"><h3>Sort me</h3><div class="sub">Tap each and pick a box. Unsorted tasks are treated as "Schedule".</div>${unsorted.map(taskChip).join('')}</div></div>` : ''}
+      <div class="matrix">${quad('do')}${quad('plan')}${quad('quick')}${quad('drop')}</div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px">
+        <button class="btn accent" data-act="plan" ${day.tasks.filter(t => !t.done && t.q !== 'drop').length ? '' : 'disabled'}>${planBtnLabel} →</button>
+      </div>
+    </div>
+  </details>`;
+
+  // timeline
+  const n = nowMin(), isToday = date === today(), isPast = date < today();
+  const [wake, sleep] = bounds();
+  const items = [
+    ...day.blocks.map(b => ({ ...b })),
+    ...fixedBlocks().map(f => ({ ...f, fixed: true, id: 'f-' + f.title })),
+  ].sort((a, b) => a.start - b.start);
+  items.push({ kind: 'sleep', fixed: true, title: 'Lights out', start: sleep, end: sleep + (wake + 1440 - sleep), note: `Phone charges outside the bed. Wake at ${fmt(wake)}.`, id: 'f-sleep' });
+  let nowPlaced = !isToday;
+  const rows = [];
+  for (const it of items) {
+    if (!nowPlaced && it.start > n) { rows.push(`<div class="nowline"><span class="time">${fmt(n)}</span><div class="bar"></div></div>`); nowPlaced = true; }
+    rows.push(renderBlock(day, it, isPast || (isToday && it.end <= n)));
+  }
+  if (!nowPlaced) rows.push(`<div class="nowline"><span class="time">${fmt(n)}</span><div class="bar"></div></div>`);
+  const tasksDone = day.tasks.filter(t => t.done).length;
+  const timeline = `
+  <section class="block">
+    <div class="sechead"><h2><span class="step-n">2</span>${rel === 'Today' ? "Today's list" : `${rel}'s list`}</h2>
+      <div class="row">${day.tasks.length ? `<span class="hint">${tasksDone}/${day.tasks.length} done</span>` : ''}${hasBlocks ? `<button class="pillbtn" data-act="copy-day">Copy as text</button>` : ''}</div></div>
+    ${unsched ? `<div class="banner"><span>${unsched} task${unsched > 1 ? 's are' : ' is'} not on the schedule yet.</span><button class="btn small" data-act="plan">Re-plan</button></div>` : ''}
+    ${hasBlocks ? `<div class="timeline">${rows.join('')}</div>` : `<div class="emptybox">Add a few tasks above, then tap <b>Plan</b>. Gym, meals and sleep are placed for you; tasks fill the gaps in ${S.settings.focus}-minute focus blocks.</div>`}
+    ${day.overflow?.length ? `<div style="margin-top:12px"><div class="eyebrow" style="margin-bottom:6px">Didn't fit today</div><div class="list">${day.overflow.map(o => `<div class="li"><span class="t">${esc(o)}</span></div>`).join('')}</div><p class="hint">Move something to "Not today", or move a task to tomorrow from its edit sheet.</p></div>` : ''}
+  </section>`;
+
+  // coming up
+  const soon = S.deadlines.filter(d => { const k = daysBetween(date, d.date); return k >= 0 && k <= 14; }).sort((a, b) => a.date.localeCompare(b.date));
+  const comingUp = soon.length ? `
+  <section class="block"><div class="sechead"><h2>Coming up</h2><span class="hint">Next 14 days</span></div>
+    <div class="list">${soon.map(d => { const k = daysBetween(date, d.date); return `<div class="li"><div class="t"><div>${esc(d.title)}</div><div class="s">${k === 0 ? 'Today' : k === 1 ? 'Tomorrow' : `In ${k} days`} · ${dayTitle(d.date).full}</div></div><button class="linkbtn" data-act="deadline-task" data-id="${d.id}">Work on it today</button></div>`; }).join('')}</div>
+  </section>` : '';
+
+  // parking lot
+  const parked = `
+  <section class="block"><div class="sechead"><h2>Parking lot</h2><span class="hint">Curious about something? Park it, don't search it.</span></div>
+    <form class="park" data-form="park"><input id="park-in" placeholder="e.g. who sings the OST of that drama" autocomplete="off"><button class="btn" type="submit">Park</button></form>
+    ${S.parked.length ? `<div class="list" style="margin-top:8px">${S.parked.slice().reverse().map(p => `<div class="li"><span class="t">${esc(p.text)}</span><button class="linkbtn" data-act="unpark" data-id="${p.id}">Done</button></div>`).join('')}</div><p class="hint">Look these up at brunch, dinner or on the treadmill.</p>` : ''}
+  </section>`;
+
+  // check-in
+  const pulls = day.review?.pulls || [];
+  const ds = startStats([date]);
+  const review = (isToday || isPast) && hasBlocks ? `
+  <section class="block"><div class="sechead"><h2>Ten-second check-in</h2><span class="hint">${ds.planned ? `${ds.onTime} of ${ds.planned} blocks started within 10 min` : 'Starts are logged when you tap Start'}</span></div>
+    <div class="card"><div class="hint" style="margin-bottom:8px">What pulled you off track today? Tap any.</div>
+    <div class="choices">${PULLS.map(p => `<button class="choice" data-act="pull" data-p="${esc(p)}" aria-pressed="${pulls.includes(p)}">${esc(p)}</button>`).join('')}</div></div>
+  </section>` : '';
+
+  return `
+  <div class="dayhead">
+    <div><div class="eyebrow">${rel}${sw && sw.k >= 1 && sw.k <= sw.total ? ` · ${esc(S.semester.name)}, week ${sw.k} of ${sw.total}` : ''}</div><h1>${full}</h1></div>
+    <div class="navbtns"><button class="iconbtn" data-act="prev" aria-label="Previous day">‹</button>${date !== today() ? `<button class="pillbtn" data-act="today">Today</button>` : ''}<button class="iconbtn" data-act="next" aria-label="Next day">›</button></div>
+  </div>
+  <div class="weekstrip">${strip}</div>
+  <div class="statline">
+    <span class="chip">Started on time this week: <b class="mono">${ws.planned ? `${ws.onTime}/${ws.planned}` : '–'}</b></span>
+    <span class="chip">Gym <span class="mono">${S.settings.gymStart}</span></span>
+    <span class="chip">Sleep <span class="mono">${S.settings.sleep}–${S.settings.wake}</span></span>
+  </div>
+  ${exampleBanner}
+  <section class="block">${dumpSection}</section>
+  ${timeline}${comingUp}${parked}${review}`;
+}
+
+function renderBlock(day, b, past) {
+  const time = `<span class="time">${fmt(b.start)}</span>`;
+  if (b.fixed) {
+    return `<div class="tl fixed${past ? ' past' : ''}">${time}<div class="rail"><span class="node"></span></div><div class="body"><div class="main"><div class="title">${esc(b.title)} <span class="meta mono">· ${fmt(b.start)}–${fmt(b.end)}</span></div><div class="meta">${esc(b.note || '')}</div></div></div></div>`;
+  }
+  if (b.kind === 'break') {
+    return `<div class="tl k-break${past ? ' past' : ''}">${time}<div class="rail"><span class="node"></span></div><div class="body"><div class="meta">${esc(b.title)} · ${b.end - b.start}m</div></div></div>`;
+  }
+  const done = blockDone(day, b);
+  const len = b.end - b.start;
+  let inner;
+  if (b.taskIds) {
+    const ts = b.taskIds.map(id => day.tasks.find(t => t.id === id)).filter(Boolean);
+    inner = `<div class="main"><div class="title">${esc(b.title)}</div><div class="meta mono">${fmt(b.start)}–${fmt(b.end)} · ${dur(len)}</div>
+      <div class="sublist">${ts.map(t => `<label><button class="check${t.done ? ' on' : ''}" data-act="toggle-task" data-id="${t.id}" aria-label="Mark ${esc(t.title)} done" style="width:20px;height:20px">${t.done ? CHECK : ''}</button><span style="${t.done ? 'text-decoration:line-through;color:var(--muted)' : ''}">${esc(t.title)}</span></label>`).join('')}</div></div>`;
+  } else {
+    const t = day.tasks.find(t => t.id === b.taskId);
+    const first = t?.first ? `<div class="first"><em>First move:</em> ${esc(t.first)}</div>` : '';
+    inner = `<button class="check${done ? ' on' : ''}" data-act="toggle-block" data-id="${b.id}" aria-label="Mark done">${done ? CHECK : ''}</button>
+      <div class="main"><div class="title">${esc(b.title)}</div><div class="meta"><span class="mono">${fmt(b.start)}–${fmt(b.end)} · ${dur(len)}</span>${b.parent ? ` · ${esc(b.parent)}` : ''}${b.part ? ` · ${b.part}` : ''}</div>${!b.stepId || stepsOf(t || {})[0]?.id === b.stepId ? first : ''}</div>`;
+  }
+  const started = day.starts?.[b.id] != null;
+  const startBtn = !done ? `<button class="startbtn" data-act="start" data-id="${b.id}">${started ? 'Resume' : 'Start 5 min'}</button>` : '';
+  inner = inner.replace(/<\/div>$/, `${startBtn}</div>`);
+  return `<div class="tl k-${b.q || 'plan'}${past ? ' past' : ''}${done ? ' isdone' : ''}">${time}<div class="rail"><span class="node"></span></div><div class="body">${inner}</div></div>`;
+}
+
+function renderWeek() {
+  const wd = weekDates(ui.date), t = today();
+  const ws = startStats(wd);
+  const pullCount = {};
+  let done = 0, total = 0;
+  wd.forEach(d => { const day = peekDay(d); if (!day) return; (day.review?.pulls || []).forEach(p => pullCount[p] = (pullCount[p] || 0) + 1); total += day.tasks.length; done += day.tasks.filter(x => x.done).length; });
+  const topPull = Object.entries(pullCount).filter(([p]) => !p.startsWith('Nothing')).sort((a, b) => b[1] - a[1])[0];
+  const m = parseYmd(wd[0]), e = parseYmd(wd[6]);
+  const sw = semWeek(wd[0]);
+  return `
+  <div class="dayhead"><div><div class="eyebrow">${sw && sw.k >= 1 && sw.k <= sw.total ? `Week ${sw.k} of ${sw.total}` : 'Week'}</div><h1>${m.getDate()} ${MON[m.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]}</h1></div>
+    <div class="navbtns"><button class="iconbtn" data-act="prev-week" aria-label="Previous week">‹</button><button class="iconbtn" data-act="next-week" aria-label="Next week">›</button></div></div>
+  <section class="block">
+    <div class="statgrid">
+      <div class="stat"><div class="v mono">${ws.planned ? Math.round(ws.onTime / ws.planned * 100) + '%' : '–'}</div><div class="l">blocks started within 10 min of plan (${ws.onTime}/${ws.planned})</div></div>
+      <div class="stat"><div class="v mono">${done}/${total}</div><div class="l">tasks finished</div></div>
+      <div class="stat"><div class="v" style="font-size:20px">${topPull ? esc(topPull[0]) : '–'}</div><div class="l">${topPull ? `pulled you off ${topPull[1]} day${topPull[1] > 1 ? 's' : ''}` : 'top distraction (from check-ins)'}</div></div>
+    </div>
+    <div class="weekrows">${wd.map(d => {
+      const day = peekDay(d), dd = parseYmd(d);
+      const tasks = day?.tasks || [];
+      const dls = S.deadlines.filter(x => x.date === d);
+      const pct = tasks.length ? Math.round(tasks.filter(x => x.done).length / tasks.length * 100) : 0;
+      const label = [...dls.map(x => `<b>${esc(x.title)}</b>`), ...tasks.filter(x => x.q !== 'drop').map(x => esc(x.title))].join(' · ') || 'Nothing planned';
+      return `<button class="wrow${d === t ? ' today' : ''}" data-act="open-day" data-date="${d}"><span class="d">${DOW[dd.getDay()]}<small>${dd.getDate()} ${MON[dd.getMonth()]}</small></span><span class="items">${label}</span><span class="bar" title="${pct}% done"><i style="width:${pct}%"></i></span></button>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function renderMonth() {
+  const base = parseYmd(ui.date), y = base.getFullYear(), mo = base.getMonth();
+  const first = ymd(new Date(y, mo, 1));
+  const start = mondayOf(first);
+  const t = today();
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(start, i), dd = parseYmd(d);
+    if (i >= 35 && dd.getMonth() !== mo) break;
+    const day = peekDay(d), tasks = day?.tasks || [];
+    const dls = S.deadlines.filter(x => x.date === d);
+    cells.push(`<button class="mcell${dd.getMonth() !== mo ? ' out' : ''}${d === t ? ' today' : ''}" data-act="open-day" data-date="${d}" aria-label="${dayTitle(d).full}"><span class="n">${dd.getDate()}</span>${dls.map(x => `<span class="dl">${esc(x.title)}</span>`).join('')}${tasks.length ? `<span class="prog">${tasks.filter(x => x.done).length}/${tasks.length}</span>` : ''}</button>`);
+  }
+  return `
+  <div class="dayhead"><div><div class="eyebrow">${esc(S.semester.name)}</div><h1>${MON[mo]} ${y}</h1></div>
+    <div class="navbtns"><button class="iconbtn" data-act="prev-month" aria-label="Previous month">‹</button><button class="iconbtn" data-act="next-month" aria-label="Next month">›</button></div></div>
+  <section class="block"><div class="month">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<div class="dow">${x}</div>`).join('')}${cells.join('')}</div>
+  <p class="hint">Deadlines in pink, task progress below the date. Tap a day to plan it.</p></section>`;
+}
+
+function renderSemester() {
+  const sm = S.semester, s = S.settings, t = today();
+  const sw = semWeek(t);
+  const pct = sw ? Math.min(100, Math.max(0, Math.round((daysBetween(sm.start, t) + 1) / (daysBetween(sm.start, sm.end) + 1) * 100))) : 0;
+  const groups = {};
+  S.deadlines.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(d => { const k = d.date.slice(0, 7); (groups[k] ||= []).push(d); });
+  const dl = Object.entries(groups).map(([k, arr]) => { const [yy, mm] = k.split('-').map(Number); return `<div class="dlgroup"><h3>${MON[mm - 1]} ${yy}</h3><div class="list">${arr.map(d => { const k2 = daysBetween(t, d.date); return `<div class="li"><div class="t"><div>${esc(d.title)}</div><div class="s">${dayTitle(d.date).full}${k2 >= 0 ? ` · in ${k2} day${k2 === 1 ? '' : 's'}` : ' · passed'}</div></div><button class="linkbtn" data-act="del-deadline" data-id="${d.id}">Remove</button></div>`; }).join('')}</div></div>`; }).join('');
+  return `
+  <div class="dayhead"><div><div class="eyebrow">Zoomed all the way out</div><h1>${esc(sm.name)}</h1></div></div>
+  <section class="block card semcard">
+    <div class="row" style="justify-content:space-between"><span>${sw && sw.k >= 1 && sw.k <= sw.total ? `Week <b class="mono">${sw.k}</b> of <span class="mono">${sw.total}</span>` : 'Outside the semester dates'}</span><span class="hint mono">${pct}%</span></div>
+    <div class="semprog"><i style="width:${pct}%"></i></div>
+    <div class="grid2">
+      <div class="field"><label for="sem-name">Name</label><input id="sem-name" data-set="semester.name" value="${esc(sm.name)}"></div>
+      <div class="field"><label for="sem-start">Starts</label><input id="sem-start" type="date" data-set="semester.start" value="${sm.start}"></div>
+      <div class="field"><label for="sem-end">Ends</label><input id="sem-end" type="date" data-set="semester.end" value="${sm.end}"></div>
+    </div>
+  </section>
+  <section class="block"><div class="sechead"><h2>Deadlines</h2><span class="hint">Enter them once from your syllabi</span></div>
+    <form class="card row" data-form="deadline" style="align-items:flex-end">
+      <div class="field" style="flex:2 1 180px"><label for="dl-title">What</label><input id="dl-title" placeholder="e.g. Econ essay due" required></div>
+      <div class="field" style="flex:1 1 140px"><label for="dl-date">When</label><input id="dl-date" type="date" required></div>
+      <button class="btn" type="submit">Add</button>
+    </form>
+    ${dl || '<p class="hint">No deadlines yet.</p>'}
+  </section>
+  <section class="block"><div class="sechead"><h2>Your non-negotiables</h2><span class="hint">Used every time a day is planned</span></div>
+    <div class="card grid2">
+      <div class="field"><label for="s-wake">Wake</label><input id="s-wake" type="time" data-set="settings.wake" value="${s.wake}"></div>
+      <div class="field"><label for="s-sleep">Lights out</label><input id="s-sleep" type="time" data-set="settings.sleep" value="${s.sleep}"></div>
+      <div class="field"><label for="s-gs">Gym from</label><input id="s-gs" type="time" data-set="settings.gymStart" value="${s.gymStart}"></div>
+      <div class="field"><label for="s-ge">Gym to</label><input id="s-ge" type="time" data-set="settings.gymEnd" value="${s.gymEnd}"></div>
+      <div class="field"><label for="s-m1s">Meal 1 from</label><input id="s-m1s" type="time" data-set="settings.meal1Start" value="${s.meal1Start}"></div>
+      <div class="field"><label for="s-m1e">Meal 1 to</label><input id="s-m1e" type="time" data-set="settings.meal1End" value="${s.meal1End}"></div>
+      <div class="field"><label for="s-m2s">Meal 2 from</label><input id="s-m2s" type="time" data-set="settings.meal2Start" value="${s.meal2Start}"></div>
+      <div class="field"><label for="s-m2e">Meal 2 to</label><input id="s-m2e" type="time" data-set="settings.meal2End" value="${s.meal2End}"></div>
+      <div class="field"><label for="s-focus">Focus block (min)</label><input id="s-focus" type="number" min="15" max="120" step="5" data-set="settings.focus" value="${s.focus}"></div>
+      <div class="field"><label for="s-buf">Time buffer (%)</label><input id="s-buf" type="number" min="0" max="100" step="5" data-set="settings.buffer" value="${s.buffer}"></div>
+    </div>
+    <p class="hint">The buffer pads every estimate, because people underestimate how long tasks take (the planning fallacy). ${(() => { const [w, sl] = bounds(); const h = (w + 1440 - sl) / 60; return h < 7 ? `Your sleep window is ${h} hours. Most adults need 7 or more for focus and self-control.` : ''; })()}</p>
+  </section>
+  <section class="block"><div class="sechead"><h2>Backup</h2><span class="hint">Copy everything out, or paste a backup back in</span></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:8px">
+      <textarea id="backup" class="dump" placeholder="Paste a backup here to restore it"></textarea>
+      <div class="row"><button class="btn ghost small" data-act="backup-copy">Copy backup</button><button class="btn ghost small" data-act="backup-restore" id="restore-btn">Restore from pasted text</button>${S.hasExamples ? '<button class="btn ghost small" data-act="clear-examples">Clear examples</button>' : ''}</div>
+    </div>
+  </section>`;
+}
+
+/* ---------- edit sheet ---------- */
+const layer = $('#layer');
+let sheetTaskId = null, delArmed = false;
+function openSheet(id) {
+  const day = getDay(ui.date), t = day.tasks.find(x => x.id === id); if (!t) return;
+  sheetTaskId = id; delArmed = false;
+  layer.innerHTML = `<div class="scrim" data-act="close-sheet"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="e-title-lbl" data-stop>
+    <div class="row" style="justify-content:space-between"><span class="eyebrow">Edit task</span><button class="iconbtn" data-act="close-sheet" aria-label="Close">×</button></div>
+    <div class="field"><label id="e-title-lbl" for="e-title">Task</label><input id="e-title" value="${esc(t.title)}"></div>
+    <div class="field"><label>Which box?</label><div class="qpick">${Object.keys(Q).map(k => `<button class="${k}" data-act="pick-q" data-q="${k}" aria-pressed="${t.q === k}">${Q[k].name}<small>${Q[k].sub}</small></button>`).join('')}</div></div>
+    <div class="field"><label for="e-est">How long, honestly? (minutes)</label><div class="row">${[10, 25, 45, 60, 90, 120].map(m => `<button class="choice" data-act="pick-est" data-m="${m}" aria-pressed="${t.est === m}">${dur(m)}</button>`).join('')}<input id="e-est" type="number" min="5" step="5" value="${t.est || 30}" style="width:90px"></div></div>
+    <div class="field"><label for="e-first">First tiny move (2 minutes or less)</label><input id="e-first" value="${esc(t.first || '')}" placeholder="e.g. open the doc and write the heading"></div>
+    <div class="field"><label for="e-steps">Break it down: one step per line, time at the end</label><textarea id="e-steps" rows="4" placeholder="Find 3 sources 30m&#10;Outline the argument 20m&#10;Draft intro 25m">${esc(stepsToText(t.steps))}</textarea><span class="hint">Each step becomes its own block on the schedule. Smaller steps are easier to start.</span></div>
+    <div class="row" style="justify-content:space-between">
+      <div class="row"><button class="btn ghost small" data-act="del-task" id="del-btn">Delete</button><button class="btn ghost small" data-act="tomorrow">Move to tomorrow</button></div>
+      <button class="btn" data-act="save-sheet">Save</button>
+    </div>
+  </div></div>`;
+  setTimeout(() => $('#e-title')?.focus(), 30);
+}
+function saveSheet() {
+  const day = getDay(ui.date), t = day.tasks.find(x => x.id === sheetTaskId); if (!t) return closeSheet();
+  t.title = $('#e-title').value.trim() || t.title;
+  t.est = Math.max(5, parseInt($('#e-est').value, 10) || 30);
+  t.first = $('#e-first').value.trim();
+  t.steps = parseSteps($('#e-steps').value, t.steps);
+  if (t.steps.length) t.est = t.steps.reduce((a, s) => a + s.est, 0);
+  const picked = layer.querySelector('.qpick [aria-pressed="true"]');
+  if (picked) t.q = picked.dataset.q;
+  delete t.example;
+  touchDay(ui.date); closeSheet(); render();
+}
+function closeSheet() { layer.innerHTML = ''; sheetTaskId = null; }
+
+/* ---------- focus mode ---------- */
+let focus = null, tick = null, wakeLock = null;
+function startFocus(blockId) {
+  const day = getDay(ui.date), b = day.blocks.find(x => x.id === blockId); if (!b) return;
+  if (day.starts[b.id] == null && ui.date === today()) { day.starts[b.id] = nowMin(); touchDay(ui.date); }
+  const t = b.taskId ? day.tasks.find(x => x.id === b.taskId) : null;
+  focus = { blockId, phase: 'five', endAt: Date.now() + 5 * 60e3, title: b.title, parent: b.parent, first: t?.first || (b.taskIds ? 'Do the smallest one first' : 'Open what you need and do one ugly first line'), blockLen: b.end - b.start };
+  try { navigator.wakeLock?.request('screen').then(l => wakeLock = l).catch(() => {}); } catch (e) {}
+  drawFocus(); clearInterval(tick); tick = setInterval(updateTimer, 1000);
+}
+function drawFocus() {
+  if (!focus) return;
+  const five = focus.phase === 'five', after = focus.phase === 'after', deep = focus.phase === 'deep';
+  layer.innerHTML = `<div class="focus" role="dialog" aria-modal="true" aria-label="Focus">
+    <button class="close" data-act="end-focus" aria-label="Close focus">×</button>
+    <div class="eyebrow" style="color:inherit;opacity:.7">${five ? 'Just five minutes. You can stop after.' : after ? "You started. That's the hard part." : 'Momentum mode'}</div>
+    <h2>${esc(focus.title)}</h2>
+    ${focus.parent ? `<div style="opacity:.7;margin-top:-10px">${esc(focus.parent)}</div>` : ''}
+    ${after ? '' : `<div class="timer" id="timer">5:00</div>`}
+    <div class="first">${five ? `First move: ${esc(focus.first)}` : after ? 'Most people keep going once they have started. Want to?' : 'Phone face down. If a thought pops up, park it below.'}</div>
+    <div class="row">${after ? `<button class="btn" data-act="keep-going">Keep going (${Math.max(5, focus.blockLen - 5)}m)</button><button class="btn ghost" data-act="end-focus">Stop here</button>` : `<button class="btn" data-act="focus-done">Done with this</button><button class="btn ghost" data-act="end-focus">Pause</button>`}</div>
+    <form class="park" data-form="park-focus"><input id="park-focus" placeholder="Curious about something? Park it here" autocomplete="off"><button class="btn ghost" type="submit">Park</button></form>
+  </div>`;
+  updateTimer();
+}
+function updateTimer() {
+  if (!focus) return;
+  const left = Math.max(0, focus.endAt - Date.now());
+  const el = $('#timer');
+  if (el) el.textContent = `${Math.floor(left / 60000)}:${pad(Math.floor(left / 1000) % 60)}`;
+  if (left <= 0 && focus.phase === 'five') { focus.phase = 'after'; drawFocus(); }
+  else if (left <= 0 && focus.phase === 'deep') { toast('Block finished. Take your break.'); endFocus(); }
+}
+function endFocus() { clearInterval(tick); focus = null; layer.innerHTML = ''; try { wakeLock?.release(); } catch (e) {} wakeLock = null; render(); }
+
+/* ---------- actions ---------- */
+function toggleBlock(id) {
+  const day = getDay(ui.date), b = day.blocks.find(x => x.id === id); if (!b) return;
+  const t = day.tasks.find(x => x.id === b.taskId); if (!t) return;
+  if (b.stepId) {
+    const s = stepsOf(t).find(x => x.id === b.stepId);
+    if (s) { s.done = !s.done; t.done = stepsOf(t).every(x => x.done); }
+  } else { t.done = !t.done; if (t.done) stepsOf(t).forEach(s => s.done = true); }
+  touchDay(ui.date);
+}
+function addParked(text) { text = text.trim(); if (!text) return; S.parked.push({ id: uid(), text, ts: Date.now() }); touch('core'); toast('Parked. Back to it.'); }
+let toastTimer = null;
+function toast(msg) {
+  let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.remove(), 2200);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Copied'); } catch (e2) { toast('Select the text and copy it'); }
+    ta.remove();
+  }
+}
+function dayAsText(date) {
+  const day = getDay(date), { full } = dayTitle(date);
+  const items = [...day.blocks, ...fixedBlocks().map(f => ({ ...f, fixed: true }))].sort((a, b) => a.start - b.start);
+  const lines = [`${full}`, ''];
+  for (const it of items) {
+    if (it.kind === 'break') continue;
+    const box = it.fixed ? '  ' : blockDone(day, it) ? '[x]' : '[ ]';
+    let title = it.taskIds ? `${it.title}: ${it.taskIds.map(id => day.tasks.find(t => t.id === id)?.title).filter(Boolean).join(', ')}` : it.title + (it.parent ? ` (${it.parent})` : '');
+    lines.push(`${fmt(it.start)}-${fmt(it.end)} ${box} ${title}`);
+  }
+  lines.push(`${S.settings.sleep}  Lights out`);
+  return lines.join('\n');
+}
+function clearExamples() {
+  for (const [d, day] of Object.entries(S.days)) {
+    const before = day.tasks.length;
+    day.tasks = day.tasks.filter(t => !t.example);
+    if (day.tasks.length !== before) { const ids = new Set(day.tasks.map(t => t.id)); day.blocks = day.blocks.filter(b => b.kind !== 'task' ? false : b.taskIds ? b.taskIds.some(i => ids.has(i)) : ids.has(b.taskId)); if (!day.blocks.length) day.overflow = []; touchDay(d); }
+  }
+  S.deadlines = S.deadlines.filter(d => !d.example);
+  S.hasExamples = false; touch('core'); toast('Examples cleared'); render();
+}
+let restoreArmed = false;
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'close-sheet' && e.target.closest('[data-stop]') && !e.target.closest('.iconbtn')) return;
+  const day = () => getDay(ui.date);
+  switch (act) {
+    case 'prev': ui.date = addDays(ui.date, -1); render(); break;
+    case 'next': ui.date = addDays(ui.date, 1); render(); break;
+    case 'today': ui.date = today(); render(); break;
+    case 'goto': ui.date = el.dataset.date; render(); break;
+    case 'open-day': ui.date = el.dataset.date; location.hash = 'day'; break;
+    case 'prev-week': ui.date = addDays(ui.date, -7); render(); break;
+    case 'next-week': ui.date = addDays(ui.date, 7); render(); break;
+    case 'prev-month': { const d = parseYmd(ui.date); ui.date = ymd(new Date(d.getFullYear(), d.getMonth() - 1, 1)); render(); break; }
+    case 'next-month': { const d = parseYmd(ui.date); ui.date = ymd(new Date(d.getFullYear(), d.getMonth() + 1, 1)); render(); break; }
+    case 'add': {
+      const ta = $('#dump'); const items = ta.value.split('\n').map(parseLine).filter(Boolean);
+      if (!items.length) { ta.focus(); break; }
+      day().tasks.push(...items); touchDay(ui.date); render();
+      const d = $('#plan-details'); if (d) d.open = true;
+      toast(`Added ${items.length}. Now tap each to sort it.`); break;
+    }
+    case 'edit': openSheet(el.dataset.id); break;
+    case 'pick-q': layer.querySelectorAll('.qpick button').forEach(b => b.setAttribute('aria-pressed', b === el)); break;
+    case 'pick-est': $('#e-est').value = el.dataset.m; layer.querySelectorAll('[data-act="pick-est"]').forEach(b => b.setAttribute('aria-pressed', b === el)); break;
+    case 'save-sheet': saveSheet(); break;
+    case 'close-sheet': closeSheet(); break;
+    case 'del-task':
+      if (!delArmed) { delArmed = true; el.textContent = 'Tap again to delete'; break; }
+      { const d = day(); d.tasks = d.tasks.filter(t => t.id !== sheetTaskId); d.blocks = d.blocks.filter(b => b.taskId !== sheetTaskId); d.blocks.forEach(b => { if (b.taskIds) b.taskIds = b.taskIds.filter(i => i !== sheetTaskId); }); d.blocks = d.blocks.filter(b => !b.taskIds || b.taskIds.length); touchDay(ui.date); closeSheet(); render(); }
+      break;
+    case 'tomorrow': {
+      const d = day(), t = d.tasks.find(x => x.id === sheetTaskId); if (!t) break;
+      d.tasks = d.tasks.filter(x => x.id !== t.id); d.blocks = d.blocks.filter(b => b.taskId !== t.id);
+      const tm = addDays(ui.date, 1); getDay(tm).tasks.push(t); touchDay(ui.date); touchDay(tm); closeSheet(); render(); toast('Moved to tomorrow'); break;
+    }
+    case 'plan': planDay(ui.date, planFrom(ui.date)); render(); setTimeout(() => document.querySelector('.timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); break;
+    case 'toggle-block': toggleBlock(el.dataset.id); render(); break;
+    case 'toggle-task': { const t = day().tasks.find(x => x.id === el.dataset.id); if (t) { t.done = !t.done; touchDay(ui.date); render(); } break; }
+    case 'start': startFocus(el.dataset.id); break;
+    case 'keep-going': focus.phase = 'deep'; focus.endAt = Date.now() + Math.max(5, focus.blockLen - 5) * 60e3; drawFocus(); break;
+    case 'focus-done': {
+      const b = day().blocks.find(x => x.id === focus.blockId);
+      if (b) { if (b.taskIds) b.taskIds.forEach(id => { const t = day().tasks.find(x => x.id === id); if (t) t.done = true; }); else if (!blockDone(day(), b)) toggleBlock(b.id); touchDay(ui.date); }
+      toast('Done. Momentum +1'); endFocus(); break;
+    }
+    case 'end-focus': endFocus(); break;
+    case 'unpark': S.parked = S.parked.filter(p => p.id !== el.dataset.id); touch('core'); render(); break;
+    case 'pull': { const r = day().review; r.pulls ||= []; const p = el.dataset.p; r.pulls = r.pulls.includes(p) ? r.pulls.filter(x => x !== p) : [...r.pulls, p]; touchDay(ui.date); el.setAttribute('aria-pressed', r.pulls.includes(p)); break; }
+    case 'copy-day': copyText(dayAsText(ui.date)); break;
+    case 'deadline-task': {
+      const dl = S.deadlines.find(x => x.id === el.dataset.id); if (!dl) break;
+      const k = daysBetween(ui.date, dl.date);
+      const t = { id: uid(), title: `Work on: ${dl.title.replace(/\s+due$/i, '')}`, q: k <= 3 ? 'do' : 'plan', est: 45, steps: [], done: false };
+      day().tasks.push(t); touchDay(ui.date); render(); openSheet(t.id); break;
+    }
+    case 'del-deadline': S.deadlines = S.deadlines.filter(x => x.id !== el.dataset.id); touch('core'); render(); break;
+    case 'clear-examples': clearExamples(); break;
+    case 'backup-copy': flushNow(); copyText(JSON.stringify(S)); break;
+    case 'backup-restore': {
+      const raw = $('#backup').value.trim(); if (!raw) { $('#backup').focus(); break; }
+      let data; try { data = JSON.parse(raw); if (!data.days || !data.settings) throw 0; } catch (err) { toast("That doesn't look like a Momentum backup"); break; }
+      if (!restoreArmed) { restoreArmed = true; el.textContent = 'Tap again: this replaces everything'; break; }
+      restoreArmed = false; S = Object.assign(blankState(), data); S.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+      dirty.add('core'); Object.keys(S.days).forEach(k => dirty.add('day:' + k)); flush(); render(); toast('Restored'); break;
+    }
+  }
+});
+function flushNow() { clearTimeout(saveTimer); flush(); }
+document.addEventListener('submit', e => {
+  const f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
+  if (f.dataset.form === 'park') { addParked($('#park-in').value); render(); setTimeout(() => $('#park-in')?.focus(), 0); }
+  if (f.dataset.form === 'park-focus') { addParked($('#park-focus').value); $('#park-focus').value = ''; }
+  if (f.dataset.form === 'deadline') {
+    const title = $('#dl-title').value.trim(), date = $('#dl-date').value; if (!title || !date) return;
+    S.deadlines.push({ id: uid(), title, date }); touch('core'); render(); toast('Deadline added');
+  }
+});
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-set]'); if (!el) return;
+  const [obj, key] = el.dataset.set.split('.');
+  let v = el.value; if (el.type === 'number') v = Math.max(+el.min || 0, Math.min(+el.max || 999, parseInt(v, 10) || 0));
+  if (!v && el.type !== 'number') return;
+  S[obj][key] = v; touch('core'); render();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (focus) endFocus(); else if (sheetTaskId) closeSheet(); }
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.id === 'dump') $('[data-act="add"]').click();
+});
+function route() { const h = location.hash.slice(1); ui.view = ['day', 'week', 'month', 'semester'].includes(h) ? h : 'day'; render(); window.scrollTo(0, 0); }
+window.addEventListener('hashchange', route);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushNow(); else if (!focus && !sheetTaskId) render(); });
+setInterval(() => { if (!focus && !sheetTaskId && ui.view === 'day' && !document.activeElement?.matches('input,textarea')) render(); }, 60000);
+
+/* ---------- boot ---------- */
+const local = loadLocal();
+if (local && local.days) { S = Object.assign(blankState(), local); S.settings = { ...DEFAULT_SETTINGS, ...local.settings }; }
+else { S = blankState(); seedExamples(S); planDay(today(), planFrom(today())); saveLocal(); }
+route();
+connectAccount();
+window.__momentum = { planDay, parseLine, parseSteps, get S() { return S; } };
+})();
+</script>
+
+</body>
+</html>
